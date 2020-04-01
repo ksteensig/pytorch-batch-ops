@@ -88,9 +88,11 @@ std::unique_ptr<T, decltype(&cudaFree)> unique_cuda_ptr(size_t len) {
 
   AT_CHECK(CUSOLVER_STATUS_SUCCESS == status2);
 
-  return std::make_pair(D, U);
+  return std::make_pair(D.diag_embed(0, L, L), U);
 }
 
+  // this backward is based on the backward from symeig_backward Functions.cpp
+  // https://github.com/pytorch/pytorch/blob/master/tools/autograd/templates/Functions.cpp
   torch::Tensor batch_symeig_backward(const std::vector<torch::Tensor> &grads,
 				      const torch::Tensor& D,
 				      const torch::Tensor& U) {
@@ -100,9 +102,12 @@ std::unique_ptr<T, decltype(&cudaFree)> unique_cuda_ptr(size_t len) {
     auto Ut = U.transpose(1,2);
     
     Tensor result;
+
+    // diagonal of all eigenvalue matrices
+    auto diag = D.diagonal(dim1=1, dim2=2);
     
     if (dU.defined()) {
-      auto F = D.unsqueeze(-2) - D.unsqueeze(-1);
+      auto F = diag.unsqueeze(-2) - diag.unsqueeze(-1);
       F.diagonal(dim1=-2, dim2=-1).fill_(INFINITY);
       F.pow_(-1);
       F.mul_(at::matmul(Ut, dU));
@@ -112,10 +117,10 @@ std::unique_ptr<T, decltype(&cudaFree)> unique_cuda_ptr(size_t len) {
     }
     
     if (dD.defined()) {
-      result.add_(at::matmul(at::matmul(U, at::diag_embed(dU, 0, -2, 1)), Ut));
+      result.add_(at::matmul(at::matmul(U, at::diag_embed(dU, /*offset=*/0, /*dim1=*/-2, /*dim2=*/-1)), Ut));
     }
     
-    return result.add(result.transpose(1, 2)).mul_(0.5);
+    return result.add(result.transpose(-2, -1)).mul_(0.5);
   }
 }
 
@@ -123,6 +128,7 @@ std::unique_ptr<T, decltype(&cudaFree)> unique_cuda_ptr(size_t len) {
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     m.def("batch_symeig_forward", &batch_symeig::batch_symeig_forward,
           "cusolver based batch symeig implementation");
-    m.def("batch_symeig_backward", &batch_symeig::batch_symeig_backward,
-          "autograd support for the batch symeig implementation");
+
+    m.def("batch_symeig_forward", &batch_symeig::batch_symeig_forward,
+          "autograd support for the batch symeig operation");
 }
