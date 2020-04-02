@@ -8,12 +8,12 @@ if conda:
 else:
     inc = []
 
-libname = "torch_batch_ops"
+libname = "torch_batch_ops_cpp"
 inc.append('/usr/local/cuda/include') 
 setup(name=libname,
       ext_modules=[CppExtension(
           libname,
-          ['batch_symeig.cpp'],
+          ['batch_ops.cpp'],
           include_dirs=inc,
           libraries=["cusolver", "cublas"],
           extra_compile_args={'cxx': ['-g', '-DDEBUG'],
