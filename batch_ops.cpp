@@ -31,8 +31,10 @@ std::unique_ptr<T, decltype(&cudaFree)> unique_cuda_ptr(size_t len) {
   return {ptr, cudaFree};
 }
 
-std::tuple<torch::Tensor, torch::Tensor> batch_symeig_forward(
-    torch::Tensor X, bool is_sort, double tol = 1e-7, int max_sweeps = 100) {
+std::tuple<torch::Tensor, torch::Tensor> batch_symeig(torch::Tensor X,
+                                                      bool is_sort,
+                                                      double tol = 1e-7,
+                                                      int max_sweeps = 100) {
   auto handle = unique_allocate(cusolverDnCreate, cusolverDnDestroy);
 
   auto U = X.clone();  // U will contain the eigenvectors
@@ -75,52 +77,67 @@ std::tuple<torch::Tensor, torch::Tensor> batch_symeig_forward(
   return std::make_pair(D, U);
 }
 
-// this backward is based on the backward from symeig_backward Functions.cpp
-// https://github.com/pytorch/pytorch/blob/master/tools/autograd/templates/Functions.cpp
-torch::Tensor batch_symeig_backward(const std::vector<torch::Tensor>& grads,
-                                    const torch::Tensor& self,
-                                    const torch::Tensor& D,
-                                    const torch::Tensor& U) {
-  auto dD = grads[0];
-  auto dU = grads[1];
+// solve U S V = svd(A)  a.k.a. syevj, where A (b, m, n), U (b, m, m), S (b,
+// min(m, n)), V (b, n, n) see also
+// https://docs.nvidia.com/cuda/cusolver/index.html#batchgesvdj-example1
+std::tuple<torch::Tensor, torch::Tensor, torch::Tensor> batch_gesvda(
+    torch::Tensor X) {
+  auto handle = unique_allocate(cusolverDnCreate, cusolverDnDestroy);
 
-  auto Ut = U.transpose(1, 2);
+  auto batch_size = X.size(0);
+  auto height = X.size(1);
+  auto width = X.size(2);
 
-  torch::Tensor result;
+  auto U = torch::zeros(batch_size, m, m).to(torch::kCUDA);
+  auto S = torch::zeros(batch_size, m, n).to(torch::kCUDA);
+  auto V = torch::zeros(batch_size, n, n).to(torch::kCUDA);
 
-  // diagonal of all eigenvalue matrices
-  auto diag = D.diagonal(0, 1, 2);
+  auto rank = n;
+  auto ldx = m;
+  auto ldu = m;
+  auto ldv = n;
+  auto strideX = 0;
+  auto strideS = 0;
+  auto strideU = 0;
+  auto strideV = 0;
 
-  if (dU.defined()) {
-    auto F = diag.unsqueeze(-2) - diag.unsqueeze(-1);
-    F.diagonal(0, -2, -1).fill_(INFINITY);
-    F.pow_(-1);
-    F.mul_(at::matmul(Ut, dU));
-    result = at::matmul(U, at::matmul(F, Ut));
-  }
-  /*
-      else {
-        result = at::zeros_like(self, LEGACY_CONTIGUOUS_MEMORY_FORMAT);
-      }
-  */
-  if (dD.defined()) {
-    result.add_(at::matmul(
-        at::matmul(U,
-                   at::diag_embed(dU, /*offset=*/0, /*dim1=*/-2, /*dim2=*/-1)),
-        Ut));
+  if (batch_size > 1) {
+    strideX = X[1].storage_offset();
+    strideS = S[1].storage_offset();
+    strideU = U[1].storage_offset();
+    strideV = V[1].storage_offset();
   }
 
-  return result.add(result.transpose(-2, -1)).mul_(0.5);
+  int lwork = 0;
+
+  auto status = cusolverDnSgesvdaStridedBatched_bufferSize(
+      handle, CUSOLVER_EIG_MODE_VECTOR, rank, height, width, X.data<float>(),
+      ldx, strideX, S.data<float>(), strideS, U.data<float>(), ldu, strideU,
+      V.data<float>(), ldv, strideV, &lwork, batch_size);
+
+  AT_CHECK(CUSOLVER_STATUS_SUCCESS == status);
+
+  auto d_work = unique_cuda_ptr<float>(lwork);
+  auto d_info = unique_cuda_ptr<int>(batch_size);
+
+  auto status = cusolverDnSgesvdaStridedBatched(
+      handle, CUSOLVER_EIG_MODE_VECTOR, rank, height, width, X.data<float>(),
+      lda, strideX, S.data<float>(), strideS, U.data<float>(), ldu, strideU,
+      V.data<float>(), ldv, strideV, d_work.get(), lwork, d_info.get(), NULL,
+      batch_size);
+
+  AT_CHECK(CUSOLVER_STATUS_SUCCESS == status);
+
+  return make_tuple(U, S, V);
 }
 
 // https://j-towns.github.io/papers/svd-derivative.pdf
-//
 // This makes no assumption on the signs of sigma.
-torch::Tensor batch_csvd_backward(const std::vector<at::Tensor>& grads,
-                                  const at::Tensor& self, bool some,
-                                  bool compute_uv, const at::Tensor& raw_u,
-                                  const at::Tensor& sigma,
-                                  const at::Tensor& raw_v) {
+torch::Tensor batch_csvd_backward(const std::vector<torch::Tensor>& grads,
+                                  const torch::Tensor& self, bool some,
+                                  bool compute_uv, const torch::Tensor& raw_u,
+                                  const torch::Tensor& sigma,
+                                  const torch::Tensor& raw_v) {
   AT_CHECK(compute_uv,
            "csvd_backward: Setting compute_uv to false in torch.svd doesn't "
            "compute singular matrices, ",
@@ -154,11 +171,11 @@ torch::Tensor batch_csvd_backward(const std::vector<at::Tensor>& grads,
   }
   auto vt = v.transpose(1, 2);
 
-  at::Tensor sigma_term;
+  torch::Tensor sigma_term;
   if (gsigma.defined()) {
     sigma_term = u.bmm(gsigma.diag_embed()).bmm(vt);
   } else {
-    sigma_term = at::zeros({1}, self.options()).expand_as(self);
+    sigma_term = torch::zeros({1}, self.options()).expand_as(self);
   }
   // in case that there are no gu and gv, we can avoid the series of kernel
   // calls below
@@ -167,8 +184,8 @@ torch::Tensor batch_csvd_backward(const std::vector<at::Tensor>& grads,
   }
 
   auto ut = u.transpose(1, 2);
-  auto im = at::eye(m, self.options());  // work if broadcast
-  auto in = at::eye(n, self.options());
+  auto im = torch::eye(m, self.options());  // work if broadcast
+  auto in = torch::eye(n, self.options());
   auto sigma_mat = sigma.diag_embed();
   auto sigma_mat_inv = sigma.pow(-1).diag_embed();
   auto sigma_expanded_sq = sigma.pow(2).unsqueeze(1).expand_as(sigma_mat);
@@ -179,7 +196,7 @@ torch::Tensor batch_csvd_backward(const std::vector<at::Tensor>& grads,
   F.diagonal(0, -2, -1).fill_(INFINITY);
   F = F.pow(-1);
 
-  at::Tensor u_term, v_term;
+  torch::Tensor u_term, v_term;
 
   if (gu.defined()) {
     u_term =
@@ -189,7 +206,7 @@ torch::Tensor batch_csvd_backward(const std::vector<at::Tensor>& grads,
     }
     u_term = u_term.bmm(vt);
   } else {
-    u_term = at::zeros({1}, self.options()).expand_as(self);
+    u_term = torch::zeros({1}, self.options()).expand_as(self);
   }
 
   if (gv.defined()) {
@@ -200,16 +217,17 @@ torch::Tensor batch_csvd_backward(const std::vector<at::Tensor>& grads,
     }
     v_term = u.bmm(v_term);
   } else {
-    v_term = at::zeros({1}, self.options()).expand_as(self);
+    v_term = torch::zeros({1}, self.options()).expand_as(self);
   }
 
   return u_term + sigma_term + v_term;
 }
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
-  m.def("batch_symeig_forward", &batch_symeig_forward,
+  m.def("batch_symeig_cpp", &batch_symeig,
         "cusolver based batch symeig implementation");
-
+  m.def("batch_gesvda_cpp", &batch_gesvda,
+        "batch SVD using the cuSOLVER gesvda");
   m.def("batch_csvd_backward", &batch_csvd_backward,
         "autograd support for the batch csvd operation");
 }
