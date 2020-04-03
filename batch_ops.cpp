@@ -88,14 +88,15 @@ std::tuple<torch::Tensor, torch::Tensor, torch::Tensor> batch_gesvda(
   auto height = X.size(1);
   auto width = X.size(2);
 
-  auto U = torch::zeros(batch_size, m, m).to(torch::kCUDA);
-  auto S = torch::zeros(batch_size, m, n).to(torch::kCUDA);
-  auto V = torch::zeros(batch_size, n, n).to(torch::kCUDA);
+  auto U = torch::zeros({batch_size, height, height}).to(torch::kCUDA);
+  auto S = torch::zeros({batch_size, height, width}).to(torch::kCUDA);
+  auto V = torch::zeros({batch_size, width, width}).to(torch::kCUDA);
 
-  auto rank = n;
-  auto ldx = m;
-  auto ldu = m;
-  auto ldv = n;
+  auto rank = width;
+  auto ldx = height;
+  auto ldu = height;
+  auto ldv = width;
+
   auto strideX = 0;
   auto strideS = 0;
   auto strideU = 0;
@@ -111,7 +112,7 @@ std::tuple<torch::Tensor, torch::Tensor, torch::Tensor> batch_gesvda(
   int lwork = 0;
 
   auto status = cusolverDnSgesvdaStridedBatched_bufferSize(
-      handle, CUSOLVER_EIG_MODE_VECTOR, rank, height, width, X.data<float>(),
+      handle.get(), CUSOLVER_EIG_MODE_VECTOR, rank, height, width, X.data<float>(),
       ldx, strideX, S.data<float>(), strideS, U.data<float>(), ldu, strideU,
       V.data<float>(), ldv, strideV, &lwork, batch_size);
 
@@ -120,15 +121,15 @@ std::tuple<torch::Tensor, torch::Tensor, torch::Tensor> batch_gesvda(
   auto d_work = unique_cuda_ptr<float>(lwork);
   auto d_info = unique_cuda_ptr<int>(batch_size);
 
-  auto status = cusolverDnSgesvdaStridedBatched(
-      handle, CUSOLVER_EIG_MODE_VECTOR, rank, height, width, X.data<float>(),
-      lda, strideX, S.data<float>(), strideS, U.data<float>(), ldu, strideU,
+  status = cusolverDnSgesvdaStridedBatched(
+      handle.get(), CUSOLVER_EIG_MODE_VECTOR, rank, height, width, X.data<float>(),
+      ldx, strideX, S.data<float>(), strideS, U.data<float>(), ldu, strideU,
       V.data<float>(), ldv, strideV, d_work.get(), lwork, d_info.get(), NULL,
       batch_size);
 
   AT_CHECK(CUSOLVER_STATUS_SUCCESS == status);
 
-  return make_tuple(U, S, V);
+  return std::make_tuple(U, S, V);
 }
 
 // https://j-towns.github.io/papers/svd-derivative.pdf
