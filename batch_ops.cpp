@@ -1,4 +1,3 @@
-
 #include <ATen/ATen.h>
 #include <ATen/cuda/CUDAContext.h>
 #include <cublas_v2.h>
@@ -37,13 +36,18 @@ std::tuple<torch::Tensor, torch::Tensor> batch_symeig(torch::Tensor X,
                                                       int max_sweeps = 100) {
   auto handle = unique_allocate(cusolverDnCreate, cusolverDnDestroy);
 
-  auto U = X.clone();  // U will contain the eigenvectors
-
   auto batch_size = X.size(0);
   auto L = X.size(1);
 
+  auto options =
+  torch::TensorOptions()
+    .dtype(torch::kFloat64)
+    .device(torch::kCUDA, 0);
+
+  auto U = torch::empty({batch_size, L, L}, options);
+
   // D contains the eigenvalus
-  auto D = torch::zeros({batch_size, L}).to(torch::kCUDA);
+  auto D = torch::zeros({batch_size, L}, options);
 
   int lwork = 0;
 
@@ -56,18 +60,18 @@ std::tuple<torch::Tensor, torch::Tensor> batch_symeig(torch::Tensor X,
   status = cusolverDnXsyevjSetSortEig(params.get(), is_sort);
   AT_CHECK(CUSOLVER_STATUS_SUCCESS == status);
 
-  auto status2 = cusolverDnSsyevjBatched_bufferSize(
-      handle.get(), CUSOLVER_EIG_MODE_VECTOR, CUBLAS_FILL_MODE_LOWER, L,
-      U.data<float>(), L, D.data<float>(), &lwork, params.get(), batch_size);
+  auto status2 = cusolverDnDsyevjBatched_bufferSize(
+      handle.get(), CUSOLVER_EIG_MODE_VECTOR, CUBLAS_FILL_MODE_UPPER, L,
+      U.data<double>(), L, D.data<double>(), &lwork, params.get(), batch_size);
 
   AT_CHECK(CUSOLVER_STATUS_SUCCESS == status2);
 
-  auto d_work = unique_cuda_ptr<float>(lwork);
+  auto d_work = unique_cuda_ptr<double>(lwork);
   auto d_info = unique_cuda_ptr<int>(batch_size);
 
-  status2 = cusolverDnSsyevjBatched(handle.get(), CUSOLVER_EIG_MODE_VECTOR,
-                                    CUBLAS_FILL_MODE_LOWER, L, U.data<float>(),
-                                    L, D.data<float>(), d_work.get(), lwork,
+  status2 = cusolverDnDsyevjBatched(handle.get(), CUSOLVER_EIG_MODE_VECTOR,
+                                    CUBLAS_FILL_MODE_LOWER, L, U.data<double>(),
+                                    L, D.data<double>(), d_work.get(), lwork,
                                     d_info.get(), params.get(), batch_size);
 
   AT_CHECK(CUSOLVER_STATUS_SUCCESS == status2);
@@ -81,21 +85,31 @@ std::tuple<torch::Tensor, torch::Tensor> batch_symeig(torch::Tensor X,
 // min(m, n)), V (b, n, n) see also
 // https://docs.nvidia.com/cuda/cusolver/index.html#batchgesvdj-example1
 std::tuple<torch::Tensor, torch::Tensor, torch::Tensor> batch_gesvda(
-    torch::Tensor X) {
+    torch::Tensor A) {
   auto handle = unique_allocate(cusolverDnCreate, cusolverDnDestroy);
+
+  auto X = A.clone().contiguous().transpose(1,2).contiguous().transpose(1,2);
 
   auto batch_size = X.size(0);
   auto height = X.size(1);
   auto width = X.size(2);
 
-  auto U = torch::zeros({batch_size, height, height}).to(torch::kCUDA);
-  auto S = torch::zeros({batch_size, height, width}).to(torch::kCUDA);
-  auto V = torch::zeros({batch_size, width, width}).to(torch::kCUDA);
-
   auto rank = width;
-  auto ldx = height;
-  auto ldu = height;
-  auto ldv = width;
+
+  auto options =
+  torch::TensorOptions()
+    .dtype(torch::kFloat64)
+    .device(torch::kCUDA, 0);
+
+  // CUDA uses column major, so U and V are created as column major matrices
+  // they are then transposed for pytorch, as transposing does not move any memory
+  auto U = torch::zeros({batch_size, rank, height}, options).transpose(1,2);
+  auto S = torch::zeros({batch_size, rank}, options);
+  auto V = torch::zeros({batch_size, width, rank}, options).transpose(1,2);
+
+  auto ldx = 0;
+  auto ldu = 0;
+  auto ldv = 0;
 
   auto strideX = 0;
   auto strideS = 0;
@@ -103,6 +117,9 @@ std::tuple<torch::Tensor, torch::Tensor, torch::Tensor> batch_gesvda(
   auto strideV = 0;
 
   if (batch_size > 1) {
+    ldx = height;
+    ldu = height;
+    ldv = width; 
     strideX = X[1].storage_offset();
     strideS = S[1].storage_offset();
     strideU = U[1].storage_offset();
@@ -111,20 +128,20 @@ std::tuple<torch::Tensor, torch::Tensor, torch::Tensor> batch_gesvda(
 
   int lwork = 0;
 
-  auto status = cusolverDnSgesvdaStridedBatched_bufferSize(
-      handle.get(), CUSOLVER_EIG_MODE_VECTOR, rank, height, width, X.data<float>(),
-      ldx, strideX, S.data<float>(), strideS, U.data<float>(), ldu, strideU,
-      V.data<float>(), ldv, strideV, &lwork, batch_size);
+  auto status = cusolverDnDgesvdaStridedBatched_bufferSize(
+      handle.get(), CUSOLVER_EIG_MODE_VECTOR, rank, height, width, X.data<double>(),
+      ldx, strideX, S.data<double>(), strideS, U.data<double>(), ldu, strideU,
+      V.data<double>(), ldv, strideV, &lwork, batch_size);
 
   AT_CHECK(CUSOLVER_STATUS_SUCCESS == status);
 
-  auto d_work = unique_cuda_ptr<float>(lwork);
+  auto d_work = unique_cuda_ptr<double>(lwork);
   auto d_info = unique_cuda_ptr<int>(batch_size);
 
-  status = cusolverDnSgesvdaStridedBatched(
-      handle.get(), CUSOLVER_EIG_MODE_VECTOR, rank, height, width, X.data<float>(),
-      ldx, strideX, S.data<float>(), strideS, U.data<float>(), ldu, strideU,
-      V.data<float>(), ldv, strideV, d_work.get(), lwork, d_info.get(), NULL,
+  status = cusolverDnDgesvdaStridedBatched(
+      handle.get(), CUSOLVER_EIG_MODE_VECTOR, rank, height, width, X.data<double>(),
+      ldx, strideX, S.data<double>(), strideS, U.data<double>(), ldu, strideU,
+      V.data<double>(), ldv, strideV, d_work.get(), lwork, d_info.get(), NULL,
       batch_size);
 
   AT_CHECK(CUSOLVER_STATUS_SUCCESS == status);
