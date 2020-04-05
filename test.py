@@ -15,18 +15,22 @@ for i in range(10):
 
 def fun_csvd():
     U,S,V = tbo.batch_svd(X)
-    print(S)
 
 def fun_svd():
     U,S,V = X[0].svd()
 
-fun_csvd()
+#X.requires_grad = True
 
-'''
+#U,S,V = tbo.batch_svd(X)
+#print(S)
+
+#loss = U.sum() + S.sum() + V.sum()
+
+#loss.backward()
+
 if __name__=='__main__':
     from timeit import Timer
-    tcsvd = Timer(lambda: fun_csvd())
+    tcsvd = Timer(fun_csvd)
     tsvd = Timer(lambda: fun_svd())
-    print(tcsvd.timeit(number=10))
-    print(tsvd.timeit(number=10))
-'''
+    print(tcsvd.timeit(number=10)/10)
+    #print(tsvd.timeit(number=10))

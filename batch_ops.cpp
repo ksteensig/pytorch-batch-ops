@@ -44,10 +44,10 @@ std::tuple<torch::Tensor, torch::Tensor> batch_symeig(torch::Tensor X,
     .dtype(torch::kFloat64)
     .device(torch::kCUDA, 0);
 
-  auto U = torch::empty({batch_size, L, L}, options);
+  auto U = X;
 
   // D contains the eigenvalus
-  auto D = torch::zeros({batch_size, L}, options);
+  auto D = torch::empty({batch_size, L}, options);
 
   int lwork = 0;
 
@@ -88,7 +88,7 @@ std::tuple<torch::Tensor, torch::Tensor, torch::Tensor> batch_gesvda(
     torch::Tensor A) {
   auto handle = unique_allocate(cusolverDnCreate, cusolverDnDestroy);
 
-  auto X = A.clone().contiguous().transpose(1,2).contiguous().transpose(1,2);
+  auto X = A.contiguous().transpose(1,2).contiguous().transpose(1,2);
 
   auto batch_size = X.size(0);
   auto height = X.size(1);
@@ -103,9 +103,9 @@ std::tuple<torch::Tensor, torch::Tensor, torch::Tensor> batch_gesvda(
 
   // CUDA uses column major, so U and V are created as column major matrices
   // they are then transposed for pytorch, as transposing does not move any memory
-  auto U = torch::zeros({batch_size, rank, height}, options).transpose(1,2);
-  auto S = torch::zeros({batch_size, rank}, options);
-  auto V = torch::zeros({batch_size, width, rank}, options).transpose(1,2);
+  auto U = torch::empty({batch_size, rank, height}, options).transpose(1,2);
+  auto S = torch::empty({batch_size, rank}, options);
+  auto V = torch::empty({batch_size, width, rank}, options).transpose(1,2);
 
   auto ldx = 0;
   auto ldu = 0;
