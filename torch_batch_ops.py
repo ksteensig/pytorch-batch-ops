@@ -11,22 +11,20 @@ class BatchcSVDFunction(torch.autograd.Function):
         n = size[2]
         batch_size = size[0]
 
-        p = 10
-        k = math.floor(n/10)
+        p = 20
+        k = math.floor(n*0.10)
         l = k+p # estimate a low rank approx that is 10% of  with p oversampling
 
-        #Phi = torch.empty(batch_size, l, m, device='cuda:0')
-        Phi = torch.randint(0,2,(batch_size, l, m),device='cuda:0',dtype=torch.float64)
-        #print(Phi)
-
-        Y = Phi.matmul(X)
+        #Phi = torch.randint(0,2,(batch_size, l, m),device='cuda:0',dtype=torch.float32)
+        #Y = Phi.matmul(X)
+        Y = X[:,:l,:]
         Yt = Y.transpose(1,2)
 
         B = Y.matmul(Yt)
         B = B.add(B.transpose(1,2))
         B.mul_(0.5)
 
-        index = torch.range(l-1, 0, -1, dtype=torch.long, device='cuda:0')
+        index = torch.range(l-1, 0, -1, dtype=torch.long).to('cuda:0', non_blocking=True)
         
         D,T = torch_batch_ops_cpp.batch_symeig_cpp(B, True, 1e-7, 20)
         D = D.index_select(dim=1, index=index)
@@ -36,9 +34,18 @@ class BatchcSVDFunction(torch.autograd.Function):
         V_ = Yt.matmul(T[:,:,:k]).matmul(S_)
         U_ = X.matmul(V_)
 
-        U,S,Q = torch_batch_ops_cpp.batch_gesvda_cpp(U_) 
+        U__ = U_.transpose(1,2).matmul(U_)
+        S,V = torch_batch_ops_cpp.batch_symeig_cpp(U__, True, 1e-7, 20)
 
-        V = V_.matmul(Q)
+        S = S.pow(0.5)
+        Si = S.pow(-0.5).diag_embed(0,1,2)
+        S = S.diag_embed(0,1,2)
+
+        U = U_.matmul(V).matmul(Si)
+
+        #U,S,Q = torch_batch_ops_cpp.batch_gesvda_cpp(U_)
+
+        V = V_.matmul(V)
 
         self.save_for_backward(X, U, S, V)
 
