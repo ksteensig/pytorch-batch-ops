@@ -2,8 +2,6 @@
 
 \section{Scientific Computing}
 
-
-
 Scientific computing covers a large multi-disciplinary field, typically combining mathematics, computer science and engineering. For this project the most relevant subfield is High-Performance Computing (HPC) which focuses on high performance for short periods \cite{larsen:hpc}, in contrast to High-Throughput Computing (HPT) which focuses on finishing many tasks over a long period \cite{wisc:htcondor}. With the advent of big data, state of the art machine learning has begun intersecting more with the field of HPC.
 
 HPC is typically done on clusters of computers with many CPUs and GPUs, connected through a high-speed communication bus. Workloads not designed for parallelism are not ideal to run on an HPC cluster, as HPC clusters do not perform single core processing particularly better than a server or desktop computer. Software is not perfectly paralellizable and there is always a part that has to be executed sequentially. Using Amdahl's Law \cite{larsen:hpc} in \eqref{eq:amdahl} it is possible to determine the maximum theoretical speedup for a piece of software, based on what percentage that is parallelizable. The variable $S$ means speedup and denotes how many times faster the software can be run as the amount of processors go to infinity. The value $p$ denotes the percentage of the program that is parallelizable and in practice it is impossible for it to be 1.
@@ -36,13 +34,13 @@ The benefit of using these pre-existing linear algebra libraries is that a lot o
 
 \section{Singular Value Decomposition}
 
-The Singular Value Decomposition (SVD) is a very general matrix decomposition, which unlike the Eigenvalue Decomposition also works on non-square matrices. Given a matrix $X \in \mathbb{C}^{m \times n}$, the SVD results in the factorization in \eqref{eq:svd}. $U$ and $V$ are both unitary matrices where $U \in \mathbb{C}^{m \times m}$ and $V \in \mathbb{C}^{n \times n}$. $S \in \mathbb{R}^{m \times n}$ is a diagonal matrix containing the singular values.
+The Singular Value Decomposition (SVD) is a very general matrix decomposition, which unlike the Eigenvalue Decomposition also works on non-square matrices. Given a matrix $X \in \mathbb{C}^{m \times n}$, the SVD results in the factorization in \eqref{eq:svd}. $U \in \mathbb{C}^{m \times m}$ and $V \in \mathbb{C}^{n \times n}$ are unitary matrices, and $S \in \mathbb{R}^{m \times n}$ is a diagonal matrix containing the singular values.
 
 \begin{equation} \label{eq:svd}
     X = USV^T
 \end{equation}
 
-It is possible to compute the SVD by using Eigenvalue Decomposition using the relation between the two decompositions as in \eqref{eq:svd:evd1}. When $S$ and either $V$ or $U$ has been computed, the opposite of $V$ and $U$ can be calculated using the relation in \eqref{eq:svd:evd2}.
+It is possible to compute the SVD by using Eigenvalue Decomposition using the relation between the two decompositions as in \eqref{eq:svd:evd1}. When $S$ and one of the unitary matrices has been computed, the other unitary matrix can be computed using the relation in \eqref{eq:svd:evd2}.
  
 \begin{equation} \label{eq:svd:evd1}
 \begin{split} 
@@ -60,9 +58,9 @@ It is possible to compute the SVD by using Eigenvalue Decomposition using the re
 
 This proves two important facts. The first is the singular values are the square root of the eigenvalues in $\Sigma_m$ and $\Sigma_n$. The second is that the singular value matrix $S$ is positive semi-definite, because $X^T X$ is positive semi-definite which has positive and real eigenvalues.
 
-This method of calculating the SVD is inefficient for large matrices as solving the eigenvalue problem has a time complexity of $O(n^3)$ and matrix multiplication is done in $O(mn^2)$. To make it viable for larger matrices, there exists various parallel algorithms to calculate the SVD for both dense and sparse matrices \cite[Chapter~4]{erricos:handbook}. Using any of these parallel SVD algorithms is not ideal as they calculate all the singular values, which is exactly what is not supposed to be done.
+This method of calculating the SVD is inefficient for large matrices as solving the eigenvalue problem has a time complexity of $O(n^3)$ and matrix multiplication is done in $O(mn^2)$. To make it viable for larger matrices, there exists various parallel algorithms to calculate the SVD for both dense and sparse matrices \cite[Chapter~4]{erricos:handbook}. But with respect to calculating the \textit{score}, using any of these parallel SVD algorithms is not ideal as they calculate all the singular values, which is exactly what is not necessary.
 
-To solve this problem there are two SVD approximations, the Randomized SVD (rSVD) and the Compressed SVD (cSVD). The rSVD is the older one and inspired Erichson, et. al. to make the cSVD \cite{erichson:csvd}. The cSVD is well suited for parallelization and it is also faster than the rSVD, therefore it makes sense to use the cSVD algorithm. The cSVD algorithm was originally made with image processing in mind, as it is well suited for computing the most significant singular values of sparse matrices. To explain how the cSVD works, the ideas behind compressive sensing are explain.
+There exists algorithms that can approximate the largest singular values of a matrix. It is possible to specify how many singular values that should be calculated. Two algorithms are the Randomized SVD (rSVD) and the Compressed SVD (cSVD). The rSVD is the older one and inspired Erichson, et. al. to make the cSVD \cite{erichson:csvd}. The cSVD is well suited for parallelization and it is also faster than the rSVD, therefore it makes sense to use the cSVD algorithm. The cSVD algorithm was originally made with image processing in mind, as it is well suited for computing the most significant singular values of sparse matrices. Because the EDJMs are also sparse when using ReLU activation functions, the cSVD should work for that specific problem too. To understand the idea behind the cSVD, it is necessary to understand the basics of compressed sensing.
 
 \section{Compressed Sensing}
 

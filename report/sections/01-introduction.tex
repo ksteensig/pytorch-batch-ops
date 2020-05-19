@@ -1,57 +1,71 @@
-
 \chapter {Introduction}
 
-The Singular Value Decomposition (SVD) is an essential tool in image processing, machine learning, low-rank approximation and dynamical systems. In machine learning and image processing, the SVD can be used for dimensionality reduction to extract the essential features of the lower dimensional data. In low-rank approximations the SVD can be used to compute low-rank matrices that are close to the original matrices. In dynamical systems the SVD can be used to calculate the pseudo-inverse, which can be used during simulation.
+Singular Value Decomposition (SVD) is an essential tool in scientific computing. The SVD has uses in fields overlapping with scientific computing, such as image processing, machine learning, low-rank approximation and dynamical systems. In machine learning the SVD can be used for dimensionality reduction to extract the essential features of the lower dimensional data. In low-rank approximations the SVD can be used to compute low-rank matrices that are close to the original matrices. In dynamical systems the SVD can be used to calculate the pseudo-inverse, which can be used during simulation.
 
-A new use for the SVD in machine learning is to determine the complexity of a Deep Neural Networks (DNN). Wang, et al. created a measure which they refer to as a \textit{score} for the neural network \cite{icml16:wang:edjm}. In the last 10 years DNNs have proved to be incredibly good at feature detection. As neural networks are used in more complex tasks, they too are growing more complex and requiring more computation power to train. It can be useful to determine a complexity attribute of neural networks trained using different training- and regularization techniques, as it can give insight into how these techniques modify neural networks of similar or different configurations.
+An recent example of how the SVD can be used in machine learning is in determining how complex functions Deep Neural Networks (DNN) can represent. In the last 10 years DNNs have proved to be incredibly good at feature detection. A DNN is a function $\hat y_i = f(x_i; \theta)$ with predicted value $\hat y_i \in \mathbb{R}^{d_{out}}$, input $x_i \in \mathbb{R}^{d_{in}}$ and parameters $\theta$. To train the parameters of the DNN, i.e. estimating $\theta$, a dataset with inputs and matching labels is used. The dataset containing inputs $x_i$ and labels $y_i$ is shown in \eqref{eq:wang:data}.
 
-\section{Neural Network Complexity}
-
- To calculate the score, it is necessary to calculate the Data Jacobian Matrices. A Data Jacobian Matrix is the Jacobian of the output vector $y_i \in \mathbb{R}^{d_{out}}$ with respect to the input vector $x_i \in \mathbb{R}^{d_{in}}$ shown in \eqref{eq:wang:djm}.
-
-\begin{equation} \label{eq:wang:djm}
-    \mathrm{DJM}(x_i) = \frac{\partial y_i}{\partial x_i},\ i=1, \dots, d_{in}
+\begin{equation} \label{eq:wang:data}
+  \begin{split}
+    D &= {(x_i,y_i)},\ i=1,\dotsc,m \\
+    X &=
+    \begin{bmatrix}
+      x_1^T \\
+      \vdots \\
+      x_m^T
+    \end{bmatrix} \in \mathbb{R}^{m \times d_{in}}
+  \end{split}
 \end{equation}
 
-The Data Jacobian Matrix is a matrix in $\mathbb{R}^{d_{out} \times d_{in}}$. This results in $d_{in}$ DJMs of height $d_{out}$. The DJMs are then used to construct the Extended Data Jacobian Matrices. One EDJM is constructed by combining all the rows at the same indices in the DJMs. As the DJMs have $d_{out}$ rows, it results in $d_{out}$ EDJMs, with the first EDJM containing all rows at the 1st index, another containing all rows at the 2nd index, and so on. The construction of an EDJM is shown in \eqref{eq:edjm}.
+As DNNs are used in more complex tasks, they too are growing more complex and requiring more computation power to train. A specific use for the SVD with applications in DNNs is to determine how complex functions a DNN can learn. Wang, et al. created a measure which they refer to as a \textit{score} of a DNN \cite{icml16:wang:edjm}. Given an input and predicted value from a DNN, it is possible to compute the Data Jacobian Matrix (DJM) \cite{icml16:wang:edjm} as shown in \eqref{eq:wang:djm}.
+
+\begin{equation} \label{eq:wang:djm}
+    \mathrm{DJM}_{\theta}(x_i) = \frac{\partial \hat y_i}{\partial x_i},\ i=1, \dots, m
+\end{equation}
+
+From the computed DJMs Extended Data Jacobian Matrices (EDJM) can then be constructed. An EDJM is constructed by combining all the rows at the same indices in the DJMs. As the DJMs have $d_{out}$ rows, it results in $d_{out}$ EDJMs, with the first EDJM containing all rows at the 1st index, another containing all rows at the 2nd index, and so on. The construction of an EDJM is shown in \eqref{eq:edjm}.
 
 \begin{equation} \label{eq:edjm}
-\mathrm{EDJM}(X, j) =
+\mathrm{EDJM}_{\theta}(X, j) =
 \begin{bmatrix}
-\mathrm{DJM}_{j}(x_1) \\
+\mathrm{DJM}_{\theta}(x_1)_j \\
 \vdots \\
-\mathrm{DJM}_{j}(x_{d_{in}})
+\mathrm{DJM}_{\theta}(x_m)_j
 \end{bmatrix},\ j=1,\dots,d_{out}
 \end{equation}
 
-For each EDJM the \textit{score} is calculated as in \eqref{eq:score}. $S(X, j)$ is a collection of the singular values of $\mathrm{EDJM}(X, j)$ and $\epsilon$ is a cut-off rate that filters singular values below $\epsilon$. Wang, et. al. uses a relative $\epsilon$ that cuts off the bottom 90\% of singular values.
+For each EDJM the \textit{score} is calculated as in \eqref{eq:score}. As many of the normalized singular values are extremely small, they are discarded if they are below the relative threshold $\epsilon$. Wang, et. al. uses a relative $\epsilon$ that discards the 90\% smallest singular values.
 
 \begin{equation} \label{eq:score}
-    \mathrm{score}(S(X, j)) =  \sum_{\sigma \in S(X, j), \sigma > \epsilon} \frac{\sigma}{\max{\sigma}}
+  \begin{split}
+  S(X, j) &=\ \{\sigma\ |\ \forall \sigma \in \mathrm{singular\ values\ of\ EDJM}_{\theta}(X, j) \} \\  
+  \mathrm{score}(S(X, j)) &=  \sum_{\sigma \in S(X, j), \sigma > \epsilon} \frac{\sigma}{\max{\sigma}}  
+  \end{split}
 \end{equation}
 
-The score is similar to the nuclear norm $||X||_* = \sum_{\sigma \in S(X, j)} \sigma$, but instead of adding all the singular values, it is a normalized sum of singular values larger than $\epsilon$. For $\epsilon=0$ the score is exactly the normalized nuclear norm.
-
-To show how the complexity, i.e. number of layers, affect the score of DNNs, Table \ref{tab:dnn:score} show the score for four different DNN configurations. The DNNs are all trained until they reach approximately the same accuracy, using a validation set.
+The score is similar to the nuclear norm $||X||_* = \sum_{\sigma \in S(X, j)} \sigma$, but instead of adding all the singular values, it is a normalized sum of singular values larger than $\epsilon$. For $\epsilon=0$ the score is exactly the normalized nuclear norm. Table \ref{tab:dnn:score} shows how changing the amount of layers while keeping hidden units constant works for four DNN configurations. Using the MNIST dataset, the DNNs are all trained until they reach approximately the same accuracy to ensure the accuracy does not contribute to the score. All layers in one of the DNNs has the same number of hidden units. \textit{A higher score indicates a DNN is able to represent more complex functions}.
 
 \begin{table}[H]
-    \centering
+  \centering
     \begin{tabular}{|l|l|l|l|} \hline
-        Hidden layers & Units per hidden layer & Accuracy & Score \\ \hline
-        1 & 6144 & 95.95\% & 2.7092 \\ \hline
-        2 & 3072 & 95.95\% & 2.8556 \\ \hline
-        3 & 2048 & 96.03\% & 3.1424 \\ \hline
-        4 & 1536 & 95.86\% & 3.3551 \\ \hline
+      Hidden layers & Units per hidden layer & Accuracy & Score \\ \hline
+      1 & 6144 & 95.95\% & 2.7092 \\ \hline
+      2 & 3072 & 95.95\% & 2.8556 \\ \hline
+      3 & 2048 & 96.03\% & 3.1424 \\ \hline
+      4 & 1536 & 95.86\% & 3.3551 \\ \hline
     \end{tabular}
     \caption{Four DNN configurations trained on the MNIST dataset}
     \label{tab:dnn:score}
-\end{table}
+  \end{table}
 
-When calculating the score for large networks with many outputs the, it becomes extremely computationally expensive because many large SVDs have to be computed. But it is unnecessary to calculate a full SVD because only the largest singular values are necessary.
+
 
 \section{Problem Statement}
 
-% how can an SVD implementation for a high performance computing system be implemented
-% how can machine learning ...
+\textit{How can singular value decomposition be parallelized?}
 
-\textit{How can the required singular values for the score be calculated efficiently?}
+\begin{itemize}
+\item How can 
+\end{itemize}
+
+\section{Requirements}
+
