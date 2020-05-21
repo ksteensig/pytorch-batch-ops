@@ -2,7 +2,7 @@
 
 Singular Value Decomposition (SVD) is an essential tool in scientific computing. The SVD has uses in fields overlapping with scientific computing, such as image processing, machine learning, low-rank approximation and dynamical systems. In machine learning the SVD can be used for dimensionality reduction to extract the essential features of the lower dimensional data. In low-rank approximations the SVD can be used to compute low-rank matrices that are close to the original matrices. In dynamical systems the SVD can be used to calculate the pseudo-inverse, which can be used during simulation.
 
-An recent example of how the SVD can be used in machine learning is in determining how complex functions Deep Neural Networks (DNN) can represent. In the last 10 years DNNs have proved to be incredibly good at feature detection. A DNN is a function $\hat y_i = f(x_i; \theta)$ with predicted value $\hat y_i \in \mathbb{R}^{d_{out}}$, input $x_i \in \mathbb{R}^{d_{in}}$ and parameters $\theta$. To train the parameters of the DNN, i.e. estimating $\theta$, a dataset with inputs and matching labels is used. The dataset containing inputs $x_i$ and labels $y_i$ is shown in \eqref{eq:wang:data}.
+A recent example of how the SVD can be used in machine learning is in determining how complex functions Deep Neural Networks (DNN) can represent. A DNN is a function $\hat y_i = f(x_i; \theta)$ with predicted value $\hat y_i \in \mathbb{R}^{d_{out}}$, input $x_i \in \mathbb{R}^{d_{in}}$ and parameters $\theta$. To train a DNN, i.e. estimating $\theta$, a dataset with inputs and matching labels is used. A dataset contains inputs $x_i$ and labels $y_i$ as shown in \eqref{eq:wang:data}.
 
 \begin{equation} \label{eq:wang:data}
   \begin{split}
@@ -57,15 +57,16 @@ The score is similar to the nuclear norm $||X||_* = \sum_{\sigma \in S(X, j)} \s
     \label{tab:dnn:score}
   \end{table}
 
-
-
 \section{Problem Statement}
 
 \textit{How can singular value decomposition be parallelized?}
 
 \begin{itemize}
-\item How can 
+\item What algorithms can be used?
+\item Which types of computing platform can be used?
 \end{itemize}
 
-\section{Requirements}
+\section{Project Delimitation}
 
+As it is an large task to solve the general problem of parallelized SVD, this project focuses on the specific task of calculating the singular values for the score of a DNN.
+% ReLU

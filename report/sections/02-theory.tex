@@ -64,47 +64,50 @@ There exists algorithms that can approximate the largest singular values of a ma
 
 \section{Compressed Sensing}
 
-The basic idea behind compressive sensing is that higher dimensional sparse signals can be approximately reconstructed from lower dimensional signals. A sparse signal $X$ is sampled with the measurement matrix $\Phi$, resulting in the output signal $Y$ in \eqref{eq:compressive:vec}. If $X$ is not sparse it is possible to use a basis transformation $\Psi$ to make it sparse. For instance, images are generally not sparse in the spatial domain but they are mostly sparse in the Fourier domain, so a potential basis transformation is a 2-dimensional DFT.
+The basic idea behind compressive sensing is that higher dimensional sparse signals can be approximately reconstructed from lower dimensional signals. A sparse signal $X$ is sampled with the measurement matrix $\Phi$, resulting in the output signal $Y$ in \eqref{eq:compressive:vec} \cite{chen:mmv}. If $X$ is not sparse it is possible to use a basis transformation $\Psi$ to make it sparse. For instance, images are generally not sparse in the spatial domain but they are mostly sparse in the Fourier domain, so a potential basis transformation is a 2-dimensional DFT.
 
 \begin{equation} \label{eq:compressive:vec}
 \begin{split}
     Y = \Phi X &, \ \mathrm{where}      \\
-    X &\in \mathbb{C}^{L \times N}      \\
-    \Phi &\in \mathbb{C}^{m \times L}   \\
-    Y &\in \mathbb{C}^{m \times N}      \\
-    L &\gg m
+    X &\in \mathbb{C}^{N \times L}      \\
+    \Phi &\in \mathbb{C}^{m \times N}   \\
+    Y &\in \mathbb{C}^{m \times L}      \\
+    N &\gg m
 \end{split}
 \end{equation}
 
-Because $Y = \Phi X$ is an underdetermined problem, there are an infinite amount of solutions to it. Compressive sensing uses the sparsity the signal $X$ and makes the argument that a very good solution to the underdetermined problem must be the most sparse solution. This can be specified as the minimization problem in \eqref{eq:compressive:l0}, where $\mathrm{rank}(\cdot)$ calculates the rank of a matrix. The lower the rank a matrix has, the more sparse the solution is. But minimizing the rank of a matrix is an NP-hard problem, which makes it unfeasible in real situations.
+To measure how sparse a matrix is, the rank sparsity measure is used \cite{chen:mmv}. This measure is shown in \eqref{eq:sparsity:measure}. In this context $x_i$ are the transposed row vectors of $X$ .
+
+\begin{equation} \label{eq:sparsity:measure}
+  \begin{split}
+      X &= [x_1\ x_2 \cdots x_N]^T \\
+      m(x_i)_{N \times 1} &= [||m(x_1)||_p\ ||m(x_2)||_p\ \cdots ||m(x_N)||_p]^T,\quad p \in \mathbb{N}\setminus 0
+  \end{split}
+\end{equation}
+
+Because $Y = \Phi X$ is an underdetermined problem, there are an infinite amount of solutions to it. Compressive sensing uses the sparsity the signal $X$ and makes the argument that a very good solution to the underdetermined problem must be the most sparse solution. This can be specified as the minimization problem in \eqref{eq:compressive:l0}, which minimizes the rank sparsity of $X$ \cite{chen:mmv}. Minimizing the rank sparsity is an NP-hard problem, which makes it unfeasible in real applications.
 
 \begin{equation} \label{eq:compressive:l0}
-    \min_{X} \mathrm{rank}(X) \quad s.t. \quad Y = \Phi X
+  \min_{X} || (m(x_i))_{N \times 1} ||_0 \quad s.t. \quad Y = \Phi X
 \end{equation}
 
-Under certain conditions it is possible to relax the minimization problem, transforming it from a combinatiorial non-convex problem to a convex problem. This is done by using the nuclear norm, as shown in \eqref{eq:compressive:l1}, instead of the rank. Calculating the nuclear norm is also a polynomial time problem, rather than an NP-hard problem, because it is the sum of the singular values of $X$.
+It is possible to relax the problem, transforming it from a combinatiorial non-convex problem to a convex problem. This is done by using the $l1$-norm instead of the $l0$-norm as shown in \eqref{eq:compressive:l1} \cite{chen:mmv}. It's important to note that the relaxation does not guarantee optimal reconstruction as the original optimization problem. 
 
 \begin{equation} \label{eq:compressive:l1}
-    \min_{X} ||X||_* \quad s.t. \quad Y = \Phi X
+    \min_{X} || (m(x_i))_{N \times 1} ||_1 \quad s.t. \quad Y = \Phi X
 \end{equation}
 
-The condition that determines 
+To determine how well the relaxed reconstruction works based on the measurement matrix $\Phi$ works, the mutual coherence, in \eqref{eq:mut:coherence} can be computed \cite{chen:mmv}. The best case is complete incoherency, when the mutual coherence is 0. In this case the relaxed problem and the optimal problem provide the same result. As the coherence of $\Phi$ increases, the chances of optimal reconstruction decreases.
 
-To determine how well a measurement matrix $\Phi$ works, there are two different usable metrics. 
-
-\begin{equation}
-    \mu = \max_{1 \le i \neq j \le L} | \langle \phi_i,\psi_j \rangle |
+\begin{equation} \label{eq:mut:coherence}
+    \mu(A) = \max_{1 \le i \neq j \le L} | G_{i,j} |,\quad G = AA^H
 \end{equation}
 
-For a usual compressed sensing problem, only the output signal $Y$ and the measurement matrix $\Phi$ are known, therefore the goal is to find $X$ in the underdetermined problem in \eqref{eq:compressive:vec}. But for the cSVD $Y$, $\Phi$ and $X$ are already known beforehand, and thus it becomes a problem of estimating a low rank approximation of $X$ based on $Y$ and $\Phi$ rather than finding the sparsest $X$ for $Y = \Phi X$.
-
-
-
+Usually, in compressed sensing problems, only the output signal $Y$ and the measurement matrix $\Phi$ are known, therefore the goal is to estimate $X$ in the underdetermined problem in \eqref{eq:compressive:l0}. But for the cSVD $Y$, $\Phi$ and $X$ are already known beforehand, and thus it becomes a problem of estimating a low rank approximation of $X$ based on $Y$ and $\Phi$ rather than finding the sparsest $X$ for $Y = \Phi X$.
 
 \section{Compressed Singular Value Decomposition}
 
-
-
+The cSVD algorithm takes inspiration from compressed sensing as it uses the idea of using $\Phi$ for random sampling, and it is also designed with the intent to minimize the Frobenius norm
 
 \begin{algorithm}[H]
 \SetAlgoLined
@@ -127,24 +130,10 @@ $V \gets \tilde V Q$ \\
 
 $ $ \newline
 
-% what is the time complexity of the algorithm? O(mnk), n = 10000, m = 784, k = floor(m*0.1)
-% pro: adding more data to the same neural network does not result in higher complexity
-% sadly making m larger also makes k larger, therefore the method is still best for very thin and high matrices
-
 The time complexity of the cSVD algorithm is dominated by the calculation $\tilde U \sim O(mnk)$. The svd of $\tilde U$ is the only step coming close, but as $\mathrm{svd}(\tilde U) \sim O(mk^2)$ it will result in a tenth of the growth in time because $k = \lfloor n/10 \rfloor$ in the context of the approximated spectral regularizer. Like the naïve SVD, the cSVD algorithm grows linearly with the amount of training data. The problem is that the complexity still grows polynomially with the size of the input vector, but instead of growing in $n^2$ it grows in $nk = 0.1n^2$. For very large inputs (i.e. the Fourier or Wavelet transforms of megapixel images), assuming training data sets of 10000, it is possible to simply transpose the EDJMs which results in a polynomial growth due to the amount of training data instead of the input size. But even though the cSVD has a lower time complexity, it is still ideal for situations with a lot of data of a small size.
 
 The only tuning possible in the algorithm is to change $p$ and $\Phi$. Erichson, et al. recommends $p=10$ as the lowest, and only if the input matrix has a low-rank structure. For the measurement matrix $\Phi$, there are more choices to be made. Erichson, et al. mentions both a Gaussian matrices and 
 
-\begin{equation*}
-    f(n) = \sqrt{c}
-    \begin{cases}
-       1 &\mbox{with prob. } \frac{1}{2c} \\
-       0 &\mbox{with prob. } 1 - \frac{1}{c} \\
-       -1 &\mbox{with prob. } \frac{1}{2c}
-    \end{cases}
-\end{equation*}
-
-where $c$ is responsible for the sparsity , as possible measurement matrices. The reason to use $f(n)$ over a Gaussian distribution is that it is less computationally expensive to generate. An alternative to these two measurement matrices is to use the fact that while training neural networks the input data is shuffled every epoch. 
 
 By collecting the first $l$ rows from an EDJM, assuming the trainng data is shuffled every epoch, it corresponds to using a $\Phi$ with linearly independent rows that are all unique standard basis vectors. The example in \eqref{eq:phi:example} shows a $\Phi$ sampling three random rows from an EDJM that has five rows, assuming no data is being shuffled. A value of $1$ in $(3,2)$ results in the second row of the EDJM ending up in the third row of the sampled EDJM matrix.
 
