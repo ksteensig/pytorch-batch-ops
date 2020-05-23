@@ -19,7 +19,16 @@ Figure \ref{fig:amdahl} shows Amdahl's Law for different values of $p$ with a $\
     \label{fig:amdahl}
 \end{figure} \footnotetext{\url{https://en.wikipedia.org/wiki/Amdahl\%27s\_law\#/media/File:AmdahlsLaw.svg}}
 
-Flynn's Taxonomy in Figure \ref{fig:flynn:taxonomy} shows the different classifications of parallel computer architectures. The two most commonly used computer architectures in HPC are Single Instruction Multiple Data (SIMD) and Multiple Instruction Multiple Data (MIMD). The SIMD aspect in HPC comes from each CPU core and GPU being able to do data parallelism with their vector instructions. GPUs are typically able to compute more things in parallel than CPUs, but GPUs do not compute as many instructions per cycle (IPC) as a CPU. The MIMD aspect in HPC comes from combining multiple devices, which can be either multiple CPU cores, multiple GPUs or both.
+An alternative to Amdahl's law is Gustafson's Law, in \eqref{eq:gustafson}, which explicitely includes the number of processors. In Amdahl's Law $p$ is the percentage which is parallelizable, but in Gustafson's Law $s$ is used instead which is the percentage that is sequential (not parallelizable), thus $p = 1-s$.
+
+\begin{equation}
+  \label{eq:gustafson}
+  S = N + (1 - N)s
+\end{equation}
+
+In theory it is simple to apply Amdahl's and Gustafson's Laws, but in practice it can be hard to determine exactly what percentage is and is not parallelizable. However they give insight into how a small non-parallelizable piece of code results in limited parallel performance as the amount of processors grow large. However, these laws do not give insight into the different types of parallelism.
+
+To classify parallelism Flynn's Taxonomy is used.Figure \ref{fig:flynn:taxonomy} shows the different classifications of parallel computer architectures. The two most commonly used computer architectures in HPC are Single Instruction Multiple Data (SIMD) and Multiple Instruction Multiple Data (MIMD). The SIMD aspect in HPC comes from each CPU core and GPU being able to do data parallelism with their vector instructions. GPUs are typically able to compute more things in parallel than CPUs, but GPUs do not compute as many instructions per cycle (IPC) as a CPU. The MIMD aspect in HPC comes from combining multiple devices, which can be either multiple CPU cores, multiple GPUs or both.
 
 \begin{figure}[H]
     \centering
@@ -97,19 +106,25 @@ It is possible to relax the problem, transforming it from a combinatiorial non-c
     \min_{X} || (m(x_i))_{N \times 1} ||_1 \quad s.t. \quad Y = \Phi X
 \end{equation}
 
-To determine how well the relaxed reconstruction works based on the measurement matrix $\Phi$ works, the mutual coherence, in \eqref{eq:mut:coherence} can be computed \cite{chen:mmv}. The best case is complete incoherency, when the mutual coherence is 0. In this case the relaxed problem and the optimal problem provide the same result. As the coherence of $\Phi$ increases, the chances of optimal reconstruction decreases.
+To determine how well the relaxed reconstruction works based on the measurement matrix $\Phi$ works, the mutual coherence, in \eqref{eq:mut:coherence} can be computed \cite{chen:mmv}. The best case is complete incoherency, when the mutual coherence is 0. In this case the relaxed problem and the optimal problem provide the same result. As the mutual coherence of $\Phi$ increases, the chances of optimal reconstruction decreases.
 
 \begin{equation} \label{eq:mut:coherence}
-    \mu(A) = \max_{1 \le i \neq j \le L} | G_{i,j} |,\quad G = AA^H
+    \mu(\Phi) = \max_{1 \le i \neq j \le L} | G_{i,j} |,\quad G = \Phi\Phi^H
 \end{equation}
 
 Usually, in compressed sensing problems, only the output signal $Y$ and the measurement matrix $\Phi$ are known, therefore the goal is to estimate $X$ in the underdetermined problem in \eqref{eq:compressive:l0}. But for the cSVD $Y$, $\Phi$ and $X$ are already known beforehand, and thus it becomes a problem of estimating a low rank approximation of $X$ based on $Y$ and $\Phi$ rather than finding the sparsest $X$ for $Y = \Phi X$.
 
 \section{Compressed Singular Value Decomposition}
 
-The cSVD algorithm takes inspiration from compressed sensing as it uses the idea of using $\Phi$ for random sampling, and it is also designed with the intent to minimize the Frobenius norm
+The cSVD algorithm, in Algorithm \ref{alg:csvd}, takes inspiration from compressed sensing, it is based on the idea of random sampling and with the intent of minimizing the norm of a matrix as in \eqref{eq:csvd:min}, where $X$ is the input matrix and $X_k$ is the low-rank approximation using $k$ singular values.
+
+\begin{equation}
+  \label{eq:csvd:min}
+  \min_{\hat X_k} || X - \hat X_k ||_F
+\end{equation}
 
 \begin{algorithm}[H]
+  \label{alg:csvd}
 \SetAlgoLined
 \SetKwInOut{Input}{Input}
 \Input{Sparse matrix $X \in \mathbb{R}^{m \times N}$, target rank k and oversampling p}
@@ -122,7 +137,7 @@ $T,D \gets \mathrm{eigs}(B,k)$ \\
 $\tilde S \gets \sqrt{D}$ \\
 $\tilde V \gets Y^T T \tilde S^{-1}$ \\
 $\tilde U \gets X \tilde V$ \\
-$U,S,Q^T \gets \mathrm{svd}(\tilde U)$ \\ % ddsda
+$U,S,Q^T \gets \mathrm{svd}(\tilde U)$ \\
 $V \gets \tilde V Q$ \\
 \KwResult{$U \in \mathbb{R}^{m \times k}$, $S \in \mathbb{R}^{k \times k}$, $V \in \mathbb{R}^{n \times k}$}
 \caption{cSVD}
@@ -130,14 +145,11 @@ $V \gets \tilde V Q$ \\
 
 $ $ \newline
 
-The time complexity of the cSVD algorithm is dominated by the calculation $\tilde U \sim O(mnk)$. The svd of $\tilde U$ is the only step coming close, but as $\mathrm{svd}(\tilde U) \sim O(mk^2)$ it will result in a tenth of the growth in time because $k = \lfloor n/10 \rfloor$ in the context of the approximated spectral regularizer. Like the naïve SVD, the cSVD algorithm grows linearly with the amount of training data. The problem is that the complexity still grows polynomially with the size of the input vector, but instead of growing in $n^2$ it grows in $nk = 0.1n^2$. For very large inputs (i.e. the Fourier or Wavelet transforms of megapixel images), assuming training data sets of 10000, it is possible to simply transpose the EDJMs which results in a polynomial growth due to the amount of training data instead of the input size. But even though the cSVD has a lower time complexity, it is still ideal for situations with a lot of data of a small size.
+The time complexity of the cSVD algorithm is dominated by the computation of $\tilde U \sim O(mnk)$. The only computation coming close in time complexity is $\mathrm{svd}(\tilde U) \sim O(mk^2)$. The naïve SVD is in $O(n^3)$ while a better algorithm such as a QR based SVD is in $O(mn^2)$. If the largest 10\% singular values are desired, it results in a tenth of the computation when comparing $O(mnk)$ and $O(mn^2)$.
 
-The only tuning possible in the algorithm is to change $p$ and $\Phi$. Erichson, et al. recommends $p=10$ as the lowest, and only if the input matrix has a low-rank structure. For the measurement matrix $\Phi$, there are more choices to be made. Erichson, et al. mentions both a Gaussian matrices and 
+One way to optimize the algorithm is to choose a good $\Phi$. Erichson, et. al. mentions a Gaussian matrix works well \cite{erichson:csvd}. An argument for this is because the rows are linearly independent, with high probability, which results in a lower mutual coherence. The downside is Gaussian matrices are computationally intensive to generate.
 
-
-By collecting the first $l$ rows from an EDJM, assuming the trainng data is shuffled every epoch, it corresponds to using a $\Phi$ with linearly independent rows that are all unique standard basis vectors. The example in \eqref{eq:phi:example} shows a $\Phi$ sampling three random rows from an EDJM that has five rows, assuming no data is being shuffled. A value of $1$ in $(3,2)$ results in the second row of the EDJM ending up in the third row of the sampled EDJM matrix.
-
-% \Phi is a lower rank permutation matrix
+By using the fact that during DNN training the training data is shuffled, it is possible to use a more efficient and deterministic $\Phi$. By collecting the first $l$ rows from an EDJM, assuming the trainng data is shuffled every epoch, it corresponds to using a $\Phi$ with linearly independent rows that are all unique standard basis vectors. The example in \eqref{eq:phi:example} shows a $\Phi$ sampling three random rows from an EDJM that has five rows, assuming no data is being shuffled. A value of $1$ in $(3,2)$ results in the second row of the EDJM ending up in the third row of the sampled EDJM matrix. $\Phi$ in this case is practically a permutation matrix with lots of zero columns.
 
 \begin{equation} \label{eq:phi:example}
     \Phi =
@@ -146,15 +158,6 @@ By collecting the first $l$ rows from an EDJM, assuming the trainng data is shuf
     0 & 0 & 1 & 0 & 0 \\
     0 & 1 & 0 & 0 & 0
     \end{bmatrix}
-\end{equation}
+  \end{equation}
 
-
-%A mutual coherence value of 0 is the best possible, thus this $\Phi$ is both theoretically optimal but will also reduce the actual computation time by making step 2 and 3 in the algorithm unnecessary. Note that these computations are not being removed completely, but as training the neural network already requires these steps they are redundant in the cSVD.
-
-To determine how well the cSVD algorithm performs, the MSE in \eqref{eq:csvd:mse} is calculated for the EDJMs of four different neural networks. This shows the MSE of the ratio between the residual and the actual singular value.
-
-\begin{equation} \label{eq:csvd:mse}
-    MSE = \frac{1}{k}\sum_{i=1}^k \left ( \frac{\hat \sigma_{i} - \sigma_i}{\sigma_i} \right )^2
-\end{equation}
-
-Figure \ref{fig:csvd:mse} shows the error between the approximated singular values and the actual singular values is very small compared to the actual singular values. Therefore the algorithm is accurate enough for the approximated spectral regularizer.
+Calculating the coherence, as in \eqref{eq:mut:coherence}, for a $\Phi$ that is this type of permutation matrix is simple because the zero columns can be removed. This means the mutual coherence is computed for a permutation matrix with its transpose. A permutation matrix multiplied with its transpose always results in an identity matrix. The identity matrix does not have any indices for $i \neq j$ that is non-zero. Therefore the coherence results in zero, which is the best possible case.

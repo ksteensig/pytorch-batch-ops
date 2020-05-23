@@ -8,15 +8,15 @@ To determine computational performance it is not necessary to use EDJMs (or othe
 
 \begin{table}[H]
   \centering
-    \begin{tabular}{|l|l|l|} \hline
-      Implementation & Execution time (s) & Speedup \\ \hline
-      PyTorch SVD & 9.954 & * \\ \hline
-      Sequential cSVD & 1.268  & 7.850 \\ \hline
-      Partially sequential cSVD & 1.211  & 8.220 \\ \hline
-      Batch cSVD (without \texttt{gesvda}) & 0.613 & 16.238 \\ \hline
-      Batch cSVD (with \texttt{gesvda}) & 0.165 & 60.327 \\ \hline
+    \begin{tabular}{|l|l|l|l|} \hline
+      Implementation & Mean (s) & Variance & Mean speedup \\ \hline
+      PyTorch SVD & 10.172 & 0.0082 & * \\ \hline
+      Sequential cSVD & 1.0961  & 53.085e-03 & 9.280 \\ \hline
+      Partially sequential cSVD & 1.095 & 97.853e-03 & 9.294 \\ \hline
+      Batch cSVD & 0.034 & 2.872e-06 & 301.741 \\ \hline
+      Batch cSVD (\texttt{gesvda}) & 0.037  & 0.149e-06 & 274.240 \\ \hline
     \end{tabular}
-    \caption{Each index is an average of five computations on a Gaussian $25 \times 10000 \times 784$ tensor}
+    \caption{Mean computation time, speedup and variance over   $25 \times 10000 \times 784$ tensor}
     \label{tab:csvd:performance}
 \end{table}
 
@@ -40,7 +40,7 @@ To compute the reconstruction error, Erichson, et. al., uses \eqref{eq:csvd:reco
 
 \begin{equation}
   \label{eq:csvd:recon}
-  ||X - U*S*V^T||_F/||X||_F
+  ||X - USV^T||_F/||X||_F
 \end{equation}
 
 
@@ -49,6 +49,13 @@ To compute the reconstruction error, Erichson, et. al., uses \eqref{eq:csvd:reco
   \centering
   \includegraphics[scale=0.6]{Figures/csvd_reconstruction.eps}
   \caption{cSVD reconstruction}
+  \label{fig:csvd:reconstruction}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[scale=0.6]{Figures/svd_reconstruction.eps}
+  \caption{SVD reconstruction}
   \label{fig:csvd:reconstruction}
 \end{figure}
 
