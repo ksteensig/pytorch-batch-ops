@@ -16,7 +16,7 @@ Figure \ref{fig:amdahl} shows Amdahl's Law for different values of $p$ with a $\
 
 \begin{figure}[H]
     \centering
-    \includegraphics[scale=0.17]{Figures/amdahl.png}
+    \includegraphics[scale=0.16]{Figures/amdahl.png}
     \caption[]{Amdahl's Law\protect\footnotemark\ with different percentage of parallelism}
     \label{fig:amdahl}
 \end{figure} \footnotetext{\url{https://en.wikipedia.org/wiki/Amdahl\%27s\_law\#/media/File:AmdahlsLaw.svg}}
@@ -41,11 +41,11 @@ To classify parallelism Flynn's Taxonomy is used. Figure \ref{fig:flynn:taxonomy
 
 To take advantage of the SIMD and MIMD architectures, libraries can be optimized to utilize multiple CPU cores, GPUs and/or vector instructions. One popular type of library in in HPC are the Basic Linear Algebra Subprograms (BLAS) specification, which specifies an interface for doing vector-vector, matrix-vector and matrix-matrix operations. The BLAS specification does not specify operations for matrix decomposition (i.e. SVD or EVD), but some libraries implementing BLAS also include support for this.
 
-The benefit of using these pre-existing linear algebra libraries is that a lot of resources has already been spent on optimizing performance for their target platform. Intel and NVIDIA both make linear algebra libraries for their hardware platforms. Intel makes the \textit{Math Kernel Library} (MKL) \cite{intel:mkl} which uses multiple cores and the vector instructions on their CPUs. NVIDIA makes the CUDA based \textit{cuBLAS} and \textit{cuSOLVER} libraries \cite{nvidia:cuda} that are designed to use on one or more GPU. Both of these are designed for homogenous hardware, i.e. they cannot utilize both the CPU and GPU. Libraries like Matrix Algebra on GPU and Multicore Architectures (MAGMA) are heterogeneous libraries \cite{tomov:magma}, as they use CPU and GPU to compute different parts of a problem. MKL, cuBLAS/cuSOLVER and MAGMA are all MIMD based libraries, but they take advantage of the SIMD architecture of individual GPUs and CPU cores as they utilize vector instructions.
+The benefit of using these pre-existing linear algebra libraries is that a lot of resources has already been spent on optimizing performance for their target platform. Intel and NVIDIA both make linear algebra libraries for their hardware platforms. Intel makes the \textit{Math Kernel Library} (MKL) \cite{intel:mkl} which uses multiple cores and the vector instructions on their CPUs. NVIDIA makes the CUDA based \textit{cuBLAS} and \textit{cuSOLVER} libraries \cite{nvidia:cuda} that are designed to use on one or more GPU. Both of these are designed for homogenous hardware, i.e. they cannot utilize both the CPU and GPU. Libraries like \textit{Matrix Algebra on GPU and Multicore Architectures} (MAGMA) are heterogeneous libraries \cite{tomov:magma}, as they use CPU and GPU to compute different parts of a problem. MKL, cuBLAS/cuSOLVER and MAGMA are all MIMD based libraries, but they take advantage of the SIMD architecture of individual GPUs and CPU cores as they utilize vector instructions.
 
 \section{Singular Value Decomposition}
 
-The Singular Value Decomposition (SVD) is a general matrix decomposition, which unlike the Eigenvalue Decomposition also works on non-square matrices. Given a matrix $X \in \mathbb{C}^{m \times n}$, the SVD results in the factorization in \eqref{eq:svd}. $U \in \mathbb{C}^{m \times m}$ and $V \in \mathbb{C}^{n \times n}$ are unitary matrices, and $S \in \mathbb{R}^{m \times n}$ is a diagonal matrix containing the singular values.
+The Singular Value Decomposition (SVD) is a general matrix decomposition, which unlike the Eigenvalue Decomposition also works on non-square matrices. Given a matrix $X \in \mathbb{C}^{m \times n}$, the SVD results in the factorization in \eqref{eq:svd}. $U \in \mathbb{C}^{m \times m}$ and $V \in \mathbb{C}^{n \times n}$ are unitary matrices, and $S \in \mathbb{R}^{m \times n}$ is a diagonal matrix containing the singular values \cite{kutz:data}.
 
 \begin{equation} \label{eq:svd}
     X = USV^T

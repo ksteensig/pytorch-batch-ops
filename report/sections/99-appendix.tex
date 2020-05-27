@@ -1,3 +1,23 @@
 \chapter{Software}\label{app:software}
 
+The software folder contains both the files implementing the cSVD and measuring the computation time of the cSVD.
 
+\subsubsection*{Implementation Files}
+
+\begin{itemize}
+\item \texttt{setup.py} builds the C++ source file and creates a library that can be imported in Python
+\item \texttt{batch\_ops.cpp} is the C++ source file which makes the cuSOLVER symmetric eigenvalue decomposition and \texttt{gesvda} compatible with PyTorch, and implements the \texttt{backward} method
+\item \texttt{torch\_batch\_ops.py} implements the batched cSVD and wraps it in a PyTorch \texttt{Function class}, this is the file to import when using the cSVD but the \texttt{PYTHONPATH} has to be set so Python can find the linked C++ library
+\end{itemize}
+
+\subsubsection*{Test Files}
+
+To run the tests, there are five different Python files. Each Python file represents a computation time test which prints 10 computation times.
+
+\begin{itemize}
+\item \texttt{sequential\_full\_svd.py} measures the computation time of the PyTorch SVD
+\item \texttt{sequential.py} measures the computation time of the sequential cSVD
+\item \texttt{partial\_sequential.py} measures the computation time of the partially sequential cSVD
+\item \texttt{parallel\_no\_gesvda.py} measures the computation time of the batched cSVD
+\item \texttt{parallel\_gesvda.py} measures the computation time of the batched cSVD using \texttt{gesvda}
+\end{itemize}

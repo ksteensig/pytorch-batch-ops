@@ -1,6 +1,6 @@
 \chapter {Introduction}
 
-The Singular Value Decomposition (SVD) is an essential tool in scientific computing. As computational problems have gotten more complex, many fields have begun applying scientific computing. These fields include image processing, machine learning, data analysis and dynamical systems. The SVD has important uses in all these fields. In image processing the SVD can be used for noise reduction, in machine learning it can be used for dimensionality reduction, in data analysis it can be uses for low-rank approximations and in dynamical systems it can be used to compute the pseudo-inverse for simulations. Many computational problems use large amounts of data that requires a lot of computation power to analyze. There is a constant demand to decrease computation time and data complexity in these systems. Because the SVD is so widely used, even a small improvement decrease in computation time can save a lot of computational resources.
+The Singular Value Decomposition (SVD) is an essential tool in scientific computing. As computational problems have gotten more complex, many fields have begun applying scientific computing. These fields include image processing, machine learning, data analysis and dynamical systems. The SVD has important uses in all these fields \cite{kutz:data}. In image processing the SVD can be used for noise reduction, in machine learning it can be used for dimensionality reduction, in data analysis it can be uses for low-rank approximations and in dynamical systems it can be used to compute the pseudo-inverse for simulations. Many computational problems use large amounts of data that requires a lot of computation power to analyze. There is a constant demand to decrease computation time and data complexity in these systems. Because the SVD is so widely used, even a small improvement decrease in computation time can save a lot of computational resources.
 
 A recent example of how the SVD keeps getting more useful is in the field of Deep Neural Networks (DNN), where it is possible to determine the complexity of functions a DNN can represent by using singular values. A DNN is a function $\hat y_i = f(x_i; \theta)$ with predicted value $\hat y_i \in \mathbb{R}^{d_{out}}$, input $x_i \in \mathbb{R}^{d_{in}}$ and parameters $\theta$. To train a DNN, i.e. estimating $\theta$, a dataset with inputs and matching labels is used. Such a dataset contains inputs $x_i$ and labels $y_i$ as in \eqref{eq:wang:data}.
 
@@ -53,16 +53,14 @@ The score is similar to the nuclear norm $||X||_* = \sum_{\sigma \in S(X, j)} \s
     \end{tabular}
     \caption{Four DNN configurations trained on the MNIST dataset}
     \label{tab:dnn:score}
-  \end{table}
-
-
+\end{table}
 
 \section{Problem Statement}
 
-This project seeks to solve the problem of \textit{how can singular value decomposition be parallelized?} As it is too large and general of a task to solve this general problem of parallelized SVD in a semester project, a less general problem is to be solved. This less general problem to be solved is to compute the singular values of a feed-forward DNN using ReLU activation functions, which can then be used to compute the score. The problem with computing the score is that the problem grows larger with the amount of data, input data size and output data size. To solve this less general problem the problem statement is broken down into three subproblems.
+This project seeks to solve the problem of \textit{how can singular value decomposition be parallelized?} As it is too large and general of a task to solve in a semester project, a less general problem is to be solved. The less general problem is to compute the singular values of a feed-forward DNN using ReLU activation functions, which can then be used to compute the score. The problem with computing the score is that the problem grows larger with the amount of data, input data size and output data size. To solve this the proble  is broken down into three subproblems.
 
 \begin{itemize}
-\item Which algorithms can be used to compute an SVD in parallel?
+\item Which algorithms can be used to compute the SVD in parallel?
 \item How can the the time complexity w.r.t. amount of data ($N$), data input size ($d_{in}$) and data output size ($d_{out}$) be reduced?
 \item Which type of computing platform is suitable for implementation?
 \end{itemize}

@@ -2,7 +2,7 @@
 
 \section{Results}
 
-To determine how well the cSVD implementation performs, three tests are conducted. The first test measures computation time, the second test measures the Mean Squared Error (MSE) of the estimated singular values, and the third test measures the reconstruction error w.r.t. of EDJMs. For the computation time test PyTorch is used, but otherwise MATLAB is used. The reason is MATLAB is easier to create graphs with, and the algorithm does not change significant behavior whether Python or MATLAB is used.
+To determine how well the cSVD implementation performs, three tests are conducted. The first test measures computation time, the second test measures the Mean Squared Error (MSE) of the estimated singular values, and the third test measures the reconstruction error w.r.t. of EDJMs. For the computation time test PyTorch is used, but otherwise MATLAB is used. The reason is MATLAB is easier to create graphs with, and the algorithm does not change significant behavior whether Python or MATLAB is used. The test files for the computation time test are included in the cSVD software project, these test files are mentioned in Appendix \ref{app:software}.
 
 \subsection*{Computation Time}
 
@@ -50,15 +50,17 @@ Table \ref{tab:csvd:performance} shows the results for the PyTorch SVD compared 
   \centering
     \begin{tabular}{|l|l|l|l|l|} \hline
       Implementation & $\hat \mu$ & $\hat \sigma^2$ & Speedup & Speedup per EDJM \\ \hline
-      PyTorch SVD & 10.172 & 0.0082 & * & * \\ \hline
-      Sequential cSVD & 1.0961  & 53.085e-03 & 9.280 & 9.280 \\ \hline
+      PyTorch SVD & 10.172 & 0.008 & * & * \\ \hline
+      Sequential cSVD & 1.096  & 53.085e-03 & 9.280 & 9.280 \\ \hline
       Partially sequential cSVD & 1.095 & 97.853e-03 & 9.294 & 9.294 \\ \hline
       Batch cSVD & 0.034 & 2.872e-06 & 301.741 & 11.967 \\ \hline
       Batch cSVD (\texttt{gesvda}) & 0.037  & 0.149e-06 & 274.240 & 10.997 \\ \hline
     \end{tabular}
     \caption{Mean computation time, variance and speedup over 10 trials.}
     \label{tab:csvd:performance}
-\end{table}
+  \end{table}
+
+\newpage
 
 \subsection*{Mean Square Error}
 
@@ -130,18 +132,18 @@ One method that may be able to improve the reconstruction error is to determine 
 
 \section{Conclusion}
 
-This project began with trying to answer \textit{How can singular value decomposition be parallelized?} This was divided into three subquestions with a specific focus on the score problem.
+This project began with trying to answer \textit{how can singular value decomposition be parallelized?} This was broken down into three subquestions with a specific focus on the problem of measuring the score.
 
-\subsubsection*{Which algorithms can be used to compute an SVD in parallel?}
+\subsubsection*{Which algorithms can be used to compute the SVD in parallel?}
 
-There are multiple algorithms to compute the SVD in parallel, but most compute all of the singular values which is not necessary to compute the score. The solution is to use the Compressed Singular Value Decomposition (cSVD). This algorithm can compute the largest singular values set by a threshold, which in the case of computing score should be the 10\% largest singular values. The algorithm works by assuming the input matrix is sparse, which means it can reduce computation problem by taking random samples of the input matrix.
+There are multiple algorithms to compute the SVD in parallel, but most of these compute all singular values which is not necessary to compute the score. The solution is to use the Compressed Singular Value Decomposition (cSVD). This algorithm can compute the largest singular values set by a threshold, which in the case of computing score is the 10\% largest singular values. The algorithm works by assuming the input matrix is sparse, which means it can reduce computation problem by taking random samples of the input matrix.
 
 \subsubsection*{How can the the time complexity w.r.t. amount of data ($N$), data input size ($d_{in}$) and data output size ($d_{out}$) be reduced?}
 
-By using the cSVD algorithm, the time complexity w.r.t. the data input size becomes smaller because of the random sampling. When calculating singular values of an EDJM the computational problem grows by $0.1d_{in}^2$ rather than $d_{in}^2$, because it is only necessary to calculate the 10\% largest singular values (10\% translates to a factor of 0.1).
+By using the cSVD algorithm, the time complexity w.r.t. the data input size becomes smaller because of the random sampling. As the input data size grows, it only grows in $0.1d_{in}^2$ rather than $d_{in}^2$, because it is only necessary to calculate the 10\% largest singular values (10\% translates to a factor of 0.1).
 
-cSVD does not solve the problem of reducing the complexity w.r.t. the amount of data or the output size. But it is possible to decrease the computation time as the output size grows, as output size means more EDJMs to compute the SVD for. The solution is to compute each individual SVD in parallel as they do not depend on each other.
+cSVD does not solve the problem of reducing the complexity w.r.t. the amount of data or the output size. But it is possible to decrease the computation time as the output size grows, as output size means more EDJMs to compute the SVD for. The solution is to compute each SVD in parallel.
 
 \subsubsection*{Which type of computing platform is suitable for implementation?}
 
-The cSVD algorithm is well suited to implement on GPUs because all but two steps of the algorithm are easy to parallelize. These two steps require an eigenvalue decomposition, which is possible to do on both CPU and GPU. By using a pure GPU implementation of the eigenvalue decomposition it is possible to make a scalable cSVD implementation. This allows applying SVD on many EDJMs simultaneously. This type of problem is suited for high-performance computing platforms using multiple GPUs in clusters.
+The cSVD algorithm is well suited to implement on GPUs because every step of the algorithm except two are easy to parallelize. These two steps require an eigenvalue decomposition, which is possible to do on both CPU and GPU. By using a pure GPU implementation of the eigenvalue decomposition it is possible to make a scalable cSVD implementation. This allows applying SVD on many EDJMs simultaneously. This type of problem is suited for high-performance computing platforms using multiple GPUs in clusters.
