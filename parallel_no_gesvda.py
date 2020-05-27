@@ -42,59 +42,24 @@ def csvd(X):
 
     return U, S, V
 
+
 import time
 
-N = 5
+N = 10
+B = 25
 
-def mat_copy():
-    X = torch.randn(20, 10000, 784).to('cuda:0')
+X = torch.randn(B, 10000, 784).to('cuda:0')
+torch.cuda.synchronize()
+U,S,V = csvd(X)
+torch.cuda.synchronize()
+
+for _ in range(N):
+    X = torch.randn(B, 10000, 784).to('cuda:0')
     torch.cuda.synchronize()
 
-def csvd_fun():
-    X = torch.randn(20, 10000, 784).to('cuda:0')
-    torch.cuda.synchronize()
+    csvd_start = time.time()
     U,S,V = csvd(X)
     torch.cuda.synchronize()
-
-def svd_fun():
-    X = torch.randn(20, 10000, 784).to('cuda:0')
-    torch.cuda.synchronize()
-    for x in X:
-        U,S,V = x.svd()
-    torch.cuda.synchronize()
-
-#t = Timer(mat_copy)
-#copy_time = t.timeit(number=N)/N
-
-torch.cuda.synchronize()
-copy_start = time.time()
-for _ in range(N):
-    mat_copy()
-torch.cuda.synchronize()
-copy_end = time.time()
-
-copy_time = (copy_end-copy_start)/N
-
-torch.cuda.synchronize()
-csvd_start = time.time()
-for _ in range(N):
-    csvd_fun()
-torch.cuda.synchronize()
-csvd_end = time.time()
-
-csvd_time = (csvd_end-csvd_start)/N - copy_time
-
-
-torch.cuda.synchronize()
-svd_start = time.time()
-for _ in range(N):
-    svd_fun()
-torch.cuda.synchronize()
-svd_end = time.time()
-
-svd_time = (svd_end-svd_start)/N - copy_time
-
-print(copy_time)
-print(csvd_time)
-print(svd_time)
-print(svd_time/csvd_time)
+    csvd_end = time.time()
+    csvd_time = (csvd_end-csvd_start)
+    print(csvd_time)
