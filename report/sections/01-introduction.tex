@@ -1,0 +1,73 @@
+\chapter {Introduction}
+
+Singular Value Decomposition (SVD) is an essential tool in scientific computing. The SVD has uses in fields overlapping with scientific computing, such as image processing, machine learning, low-rank approximation and dynamical systems. In machine learning the SVD can be used for dimensionality reduction to extract the essential features of the lower dimensional data. In low-rank approximations the SVD can be used to compute low-rank matrices that are close to the original matrices. In dynamical systems the SVD can be used to calculate the pseudo-inverse, which can be used during simulation.
+ 
+
+Many uses for SVDs are in the field of scientific computing, where even small decreases in computation time can save a lot of computation time when considering all the CPUs and GPUs 
+
+A recent example of how the SVD can be used in machine learning is to determine the complexity of functions Deep Neural Networks (DNN) can represent. A DNN is a function $\hat y_i = f(x_i; \theta)$ with predicted value $\hat y_i \in \mathbb{R}^{d_{out}}$, input $x_i \in \mathbb{R}^{d_{in}}$ and parameters $\theta$. To train a DNN, i.e. estimating $\theta$, a dataset with inputs and matching labels is used. A dataset contains inputs $x_i$ and labels $y_i$ as shown in \eqref{eq:wang:data}. The matrix $X$ contains all $m$ input vectors.
+
+\begin{equation} \label{eq:wang:data}
+  \begin{split}
+    D &= {(x_i,y_i)},\ i=1,\dotsc,N \\
+    X &=
+    \begin{bmatrix}
+      x_1 & \cdots & x_N
+    \end{bmatrix}^T \in \mathbb{R}^{N \times d_{in}}
+  \end{split}
+\end{equation}
+
+Wang, et al. created a measure which they refer to as a \textit{score} of DNNs, specifically feed-forward DNNs and convolutional DNNs \cite{icml16:wang:edjm}. Given an input and predicted value from a DNN, it is possible to compute the Data Jacobian Matrix (DJM) \cite{icml16:wang:edjm} as shown in \eqref{eq:wang:djm}.
+
+\begin{equation} \label{eq:wang:djm}
+    \mathrm{DJM}_{\theta}(x_i) = \frac{\partial \hat y_i}{\partial x_i},\ i=1, \dots, N
+\end{equation}
+
+From the computed DJMs Extended Data Jacobian Matrices (EDJM) can then be constructed. An EDJM is constructed by combining all the rows at the same indices in the DJMs. As the DJMs have $d_{out}$ rows, it results in $d_{out}$ EDJMs, with the first EDJM containing all rows at the 1st index, another containing all rows at the 2nd index, and so on.
+
+\begin{equation} \label{eq:edjm}
+\mathrm{EDJM}_{\theta}(X, j) =
+\begin{bmatrix}
+\mathrm{DJM}_{\theta}(x_1)_j \\
+\vdots \\
+\mathrm{DJM}_{\theta}(x_N)_j
+\end{bmatrix},\ j=1,\dots,d_{out}
+\end{equation}
+
+For each EDJM the \textit{score} is calculated as in \eqref{eq:score}. As many of the normalized singular values are extremely small, they are discarded if they are below the relative threshold $\epsilon$. Wang, et. al. uses a relative $\epsilon$ that discards the 90\% smallest singular values.
+
+\begin{equation} \label{eq:score}
+  \begin{split}
+  S(X, j) &=\ \{\sigma\ |\ \forall \sigma \in \mathrm{singular\ values\ of\ EDJM}_{\theta}(X, j) \} \\  
+  \mathrm{score}(S(X, j)) &=  \sum_{\sigma \in S(X, j), \sigma > \epsilon} \frac{\sigma}{\max{\sigma}}  
+  \end{split}
+\end{equation}
+
+The score is similar to the nuclear norm $||X||_* = \sum_{\sigma \in S(X, j)} \sigma$, but instead of adding all the singular values, it is a normalized sum of singular values larger than $\epsilon$. For $\epsilon=0$ the score is exactly the normalized nuclear norm. Table \ref{tab:dnn:score} shows how changing the amount of layers while keeping hidden units constant works for four DNN configurations. Using the MNIST dataset \cite{lecun:mnist}, the DNNs are all trained until they reach approximately the same accuracy to ensure the accuracy does not contribute to the score. All layers in one of the DNNs has the same number of hidden units. \textit{A higher score indicates a DNN is able to represent more complex functions}.
+
+\begin{table}[H]
+  \centering
+    \begin{tabular}{|l|l|l|l|} \hline
+      Hidden layers & Units per hidden layer & Accuracy & Score \\ \hline
+      1 & 6144 & 95.95\% & 2.7092 \\ \hline
+      2 & 3072 & 95.95\% & 2.8556 \\ \hline
+      3 & 2048 & 96.03\% & 3.1424 \\ \hline
+      4 & 1536 & 95.86\% & 3.3551 \\ \hline
+    \end{tabular}
+    \caption{Four DNN configurations trained on the MNIST dataset}
+    \label{tab:dnn:score}
+\end{table}
+
+\section{Problem Statement}
+
+\textit{How can singular value decomposition be parallelized?}
+
+\begin{itemize}
+\item Which algorithms can be used to compute an SVD in parallel?
+\item How can the the time complexity w.r.t. amount of data ($N$), data input size ($d_{in}$) and data output size ($d_{out}$) be reduced?
+\item Which type of computing platform is suitable for implementation?
+\end{itemize}
+
+\section{Project Delimitation}
+
+As it is an large task to solve the general problem of parallelized SVD, this project focuses on the specific task of calculating the singular values for the score of a feed-forward DNN using Rectified Linear Unit (ReLU) activation functions.
